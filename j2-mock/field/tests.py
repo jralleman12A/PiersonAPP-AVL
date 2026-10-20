@@ -41,3 +41,14 @@ class FieldApiTests(TestCase):
         self.post("/api/field/arrive/", {"at": "2026-10-20T12:42:00+00:00", "request_key": "c"})
         self.assertEqual(RunState.current().on_site_at.isoformat(), "2026-10-20T12:42:00+00:00")
         self.assertEqual(self.client.get("/api/field/truck/").json()["phase"], "on_site")
+
+
+class MicrosoftSignInTests(TestCase):
+    def setUp(self):
+        call_command("seed", stdout=io.StringIO())
+
+    def test_returns_to_app_with_a_page_not_a_redirect(self):
+        res = self.client.post("/auth/microsoft/", {"next": "https://localhost/"})
+        self.assertEqual(res.status_code, 200)
+        self.assertContains(res, 'href="https://localhost/"')
+        self.assertTrue(self.client.get("/api/auth/session/").json()["authenticated"])

@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Signed in</title>
+<style>
+  body { margin: 0; font-family: system-ui, sans-serif; background: #0b2c47; color: white; display: flex; align-items: center; justify-content: center; height: 100vh; text-align: center; }
+  a { color: #f04e23; font-weight: 700; }
+</style>
+</head>
+<body>
+  <div>
+    <p>Signed in. Returning to AVL Field…</p>
+    <p><a id="back" href="{{ next }}">Open the app</a></p>
+  </div>
+  <script>window.location.replace(document.getElementById('back').getAttribute('href'));</script>
+</body>
+</html>

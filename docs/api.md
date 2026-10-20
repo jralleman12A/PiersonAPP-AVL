@@ -64,7 +64,7 @@ Fields J2 doesn't hold yet (site contact and hours, drive, arrival window, hotel
 
 ## Open questions for J2
 
-- **App sign-in return.** The APK opens J2's `/auth/microsoft/` inside the app and J2 redirects to `next=https://localhost/`. J2 must allow that redirect target for the app only.
+- **App sign-in return.** The APK opens J2's `/auth/microsoft/` inside the app and J2 sends the crew back to `next=https://localhost/`. J2 must allow that target for the app only, and must return a small page that moves there with JavaScript, not a 302: Android's WebView won't let the app serve a redirect to `https://localhost` and shows "connection refused". `j2-mock` does this in `return_to_app.html`.
 - **CSRF.** `j2-mock` skips CSRF checks. J2 should either exempt the field API (session + `request_key` + same-site cookie) or expose the CSRF token for the app to send.
 - **Session length on phones.** `SESSION_COOKIE_AGE`; 14 days for now.
 - **Roles.** Django groups → crew, team lead, PM.

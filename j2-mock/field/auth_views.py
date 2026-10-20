@@ -9,7 +9,7 @@ import json
 
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
-from django.http import HttpResponseRedirect, JsonResponse
+from django.http import JsonResponse
 from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
@@ -45,8 +45,10 @@ def microsoft_start(request):
         user = User.objects.get(username=data.USER["username"])
         login(request, user)
         request.session["auth_method"] = "microsoft"
-        # Real J2 must only redirect to allowed app URLs. The mock trusts any.
-        return HttpResponseRedirect(next_url)
+        # Hand back to the app with a page, not a 302: Android's WebView doesn't let the app
+        # serve a redirect to https://localhost, so the phone shows "connection refused".
+        # Real J2 must do the same for app sign-ins, and only for allowed app URLs. The mock trusts any.
+        return render(request, "field/return_to_app.html", {"next": next_url})
     return render(request, "field/mock_microsoft.html", {"next": next_url, "user": data.USER})
 
 
