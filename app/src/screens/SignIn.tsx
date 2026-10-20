@@ -24,12 +24,31 @@ export function SignIn({ online, onSignedIn }: Props) {
     setError('')
   }
 
-  function signInMicrosoft() {
-    if (!online) {
+  function unreachable() {
+    return isNative
+      ? `Can't reach J2 at ${getServer()}. Check the phone is on the same Wi-Fi as the laptop (or Tailscale is on) and the server is running.`
+      : "Can't reach J2. Check the server is running."
+  }
+
+  async function signInMicrosoft() {
+    if (!online && !isNative) {
       setError('First sign-in needs a connection. Once signed in, the app keeps working offline.')
       return
     }
-    window.location.href = microsoftSignInUrl()
+    // Check J2 answers before leaving the app, so a dead connection shows an error instead of a frozen screen.
+    setBusy(true)
+    setError('')
+    try {
+      const session = await api.session()
+      if (session.authenticated) {
+        onSignedIn(session)
+        return
+      }
+      window.location.href = microsoftSignInUrl()
+    } catch (err) {
+      setError(err instanceof OfflineError ? unreachable() : 'J2 answered with an error. Try again.')
+      setBusy(false)
+    }
   }
 
   async function signInPassword() {
@@ -38,7 +57,7 @@ export function SignIn({ online, onSignedIn }: Props) {
     try {
       onSignedIn(await api.login(username, password))
     } catch (err) {
-      if (err instanceof OfflineError) setError(`Can't reach J2${getServer() ? ` at ${getServer()}` : ''}. Check the server address and your connection.`)
+      if (err instanceof OfflineError) setError(unreachable())
       else if (err instanceof ApiError) setError(err.message)
       else setError('Sign-in failed.')
     } finally {
@@ -83,14 +102,14 @@ export function SignIn({ online, onSignedIn }: Props) {
                 </button>
               </>
             )}
-            <button className="btn btn-orange ms-btn" onClick={signInMicrosoft} disabled={!serverReady}>
+            <button className="btn btn-orange ms-btn" onClick={signInMicrosoft} disabled={!serverReady || busy}>
               <span className="ms-mark" aria-hidden="true">
                 <span style={{ background: '#f25022' }} />
                 <span style={{ background: '#7fba00' }} />
                 <span style={{ background: '#00a4ef' }} />
                 <span style={{ background: '#ffb900' }} />
               </span>
-              Sign in with Microsoft
+              {busy ? 'Connecting to J2…' : 'Sign in with Microsoft'}
             </button>
             <button className="text-btn" onClick={() => setShowPw(!showPw)}>
               {showPw ? 'Hide password sign-in' : 'Use J2 username and password'}

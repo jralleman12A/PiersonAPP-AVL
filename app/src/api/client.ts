@@ -2,6 +2,8 @@ import { Capacitor } from '@capacitor/core'
 import type { Session, Truck, Week } from './types'
 
 const SERVER_KEY = 'avl.server'
+// A firewall that drops packets makes a request hang for minutes; give up sooner and say so.
+const TIMEOUT_MS = 10000
 
 // Thrown when the phone can't reach J2 at all, as opposed to J2 saying no.
 export class OfflineError extends Error {}
@@ -47,15 +49,22 @@ export function needsServer() {
 
 async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
   let res: Response
+  let timer: number | undefined
   try {
-    res = await fetch(getServer() + path, {
+    const call = fetch(getServer() + path, {
       method,
       credentials: 'include',
       headers: body === undefined ? {} : { 'Content-Type': 'application/json' },
       body: body === undefined ? undefined : JSON.stringify(body),
     })
+    const timeout = new Promise<never>((_, reject) => {
+      timer = window.setTimeout(() => reject(new Error('timeout')), TIMEOUT_MS)
+    })
+    res = await Promise.race([call, timeout])
   } catch {
     throw new OfflineError('No connection to J2')
+  } finally {
+    window.clearTimeout(timer)
   }
   const data = await res.json().catch(() => ({}))
   if (!res.ok) throw new ApiError(res.status, data.error ?? `J2 answered ${res.status}`)
