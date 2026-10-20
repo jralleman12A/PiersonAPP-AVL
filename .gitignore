@@ -1,0 +1,15 @@
+node_modules/
+dist/
+*.sqlite3
+__pycache__/
+*.pyc
+.venv/
+.env
+.DS_Store
+# Android build output
+app/android/app/build/
+app/android/build/
+app/android/.gradle/
+app/android/local.properties
+*.apk
+*.keystore
