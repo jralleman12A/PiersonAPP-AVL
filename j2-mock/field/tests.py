@@ -52,3 +52,31 @@ class MicrosoftSignInTests(TestCase):
         self.assertEqual(res.status_code, 200)
         self.assertContains(res, 'href="https://localhost/"')
         self.assertTrue(self.client.get("/api/auth/session/").json()["authenticated"])
+
+
+class RoomsAndReportTests(FieldApiTests):
+    JPEG = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q=="
+
+    def test_room_needs_every_step_before_complete(self):
+        res = self.post("/api/field/rooms/r0/", {"done": True, "request_key": "d1"})
+        self.assertEqual(res.status_code, 400)
+        self.post("/api/field/rooms/r0/", {"serial": "AP9-75-482113", "height_ok": True, "packed": True, "request_key": "d2"})
+        self.post("/api/field/rooms/r0/photo/", {"image": self.JPEG, "request_key": "d3"})
+        res = self.post("/api/field/rooms/r0/", {"done": True, "request_key": "d4"})
+        self.assertTrue(res.json()["done"])
+        self.assertTrue(res.json()["photo_url"].startswith("/media/photos/"))
+
+    def test_serial_must_be_on_the_if(self):
+        res = self.post("/api/field/rooms/r0/", {"serial": "AP9-75-000000", "request_key": "e1"})
+        self.assertEqual(res.status_code, 400)
+
+    def test_report_to_pcci_ships_and_returns_truck(self):
+        res = self.post("/api/field/report/send/", {"return_to": "pcci", "ship_on_if": True, "notes": "", "request_key": "f1"})
+        self.assertEqual(res.json()["if_status"], "partially_shipped")
+        self.assertEqual(self.client.get("/api/field/truck/").json()["state"], "returned")
+
+    def tearDown(self):
+        from .models import Room
+
+        for room in Room.objects.exclude(photo=""):
+            room.photo.delete(save=False)

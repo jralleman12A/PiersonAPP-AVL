@@ -71,3 +71,22 @@ LPS = [
     ("LP-000986", 'Box · ActivPanel 9 75" · Library'),
     ("LP-000987", "Skid · 6 wall mounts, anchors, HDMI"),
 ]
+
+SCOPE = {
+    "overview": 'Remove old projector boards, install 6 ActivPanel 75" on wall mounts, pack and dispose of packaging on site.',
+    "storage": "Gym equipment room, east door",
+    "hang_height": 'Bottom edge 30" AFF',
+    "wall_type": "Block (CMU)",
+    "packaging": "Site dumpster, rear lot",
+}
+
+ROOMS = [
+    (f"r{i}", name, f"AP9-75-{482113 + i * 37}")
+    for i, name in enumerate(["Room 210", "Room 212", "Room 214", "Room 216", "Room 218", "Library"])
+]
+
+FULFILLMENT = {
+    "so_number": "SO-48213",
+    "if_number": "IF-30412",
+    "panels_this_week": 30,
+}

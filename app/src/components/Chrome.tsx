@@ -11,6 +11,7 @@ export function Header(props: {
   initials: string
   onPill: () => void
   onAccount: () => void
+  onBack?: () => void
 }) {
   const { sync } = props
   const dot = sync.syncing ? 'var(--amber)' : sync.online ? 'var(--green)' : 'var(--orange)'
@@ -24,6 +25,11 @@ export function Header(props: {
   return (
     <div className="header">
       <div className="header-row">
+        {props.onBack && (
+          <button className="back" aria-label="Back" onClick={props.onBack}>
+            ‹
+          </button>
+        )}
         <div className="header-text">
           {props.showLogo ? <img src="/pierson-logo.png" alt="Pierson" className="header-logo" /> : <div className="kicker">{props.kicker}</div>}
           <div className="title">{props.title}</div>

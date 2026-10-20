@@ -1,9 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api, ApiError, getServer, OfflineError } from './api/client'
-import type { Day, Lp, Session, Truck as TruckData, Week } from './api/types'
+import type { Day, Lp, Report as ReportData, Room, Rooms as RoomsData, Session, Truck as TruckData, Week } from './api/types'
 import { AccountSheet, Header, ScanOverlay, TabBar, Toast, type Tab } from './components/Chrome'
-import { applyPendingToTruck, applyPendingToWeek, clearCache, readCache, writeCache } from './offline/cache'
+import {
+  applyPendingToReport,
+  applyPendingToRooms,
+  applyPendingToTruck,
+  applyPendingToWeek,
+  clearCache,
+  readCache,
+  writeCache,
+} from './offline/cache'
 import { enqueue, flush, markOnline, pending, subscribe, type FlushResult, type SyncState } from './offline/queue'
+import { stampPhoto } from './photo'
+import { Report } from './screens/Report'
+import { RoomDetail } from './screens/RoomDetail'
+import { Rooms } from './screens/Rooms'
 import { SignIn } from './screens/SignIn'
 import { Today } from './screens/Today'
 import { isDone, Truck } from './screens/Truck'
@@ -12,6 +24,8 @@ type SignedIn = Extract<Session, { authenticated: true }>
 
 const SCAN_MS = 900
 const TOAST_MS = 2600
+// At launch with no saved sign-in, wait this long for J2 before showing the sign-in screen.
+const LAUNCH_CHECK_MS = 4000
 
 function localDate(iso: string) {
   const [y, m, d] = iso.split('-').map(Number)
@@ -26,11 +40,35 @@ function shortDate(iso: string, withWeekday = false) {
   })
 }
 
+function stampTime(d: Date) {
+  const date = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).replace(',', '')
+  const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }).replace(/\s?[AP]M$/i, '')
+  return `${date} ${time}`
+}
+
+// Applies queued writes over J2's answer (or the cached one) for each part of the day.
+function withPending() {
+  const writes = pending()
+  const week = readCache<Week>('week')
+  const truck = readCache<TruckData>('truck')
+  const rooms = readCache<RoomsData>('rooms')
+  const report = readCache<ReportData>('report')
+  return {
+    week: week && applyPendingToWeek(week, writes),
+    truck: truck && applyPendingToTruck(truck, writes),
+    rooms: rooms && applyPendingToRooms(rooms, writes),
+    report: report && applyPendingToReport(report, writes),
+  }
+}
+
 export default function App() {
   const [session, setSession] = useState<SignedIn | null | false>(null)
   const [week, setWeek] = useState<Week | null>(null)
   const [truck, setTruck] = useState<TruckData | null>(null)
+  const [rooms, setRooms] = useState<RoomsData | null>(null)
+  const [report, setReport] = useState<ReportData | null>(null)
   const [tab, setTab] = useState<Tab>('today')
+  const [roomId, setRoomId] = useState<string | null>(null)
   const [dayIndex, setDayIndex] = useState(0)
   const [sync, setSync] = useState<SyncState>({ online: true, syncing: false, queued: 0 })
   const [toast, setToast] = useState<{ kicker: string; text: string } | null>(null)
@@ -46,56 +84,69 @@ export default function App() {
 
   useEffect(() => subscribe(setSync), [])
 
+  const showCached = useCallback(() => {
+    const data = withPending()
+    setWeek(data.week)
+    setTruck(data.truck)
+    setRooms(data.rooms)
+    setReport(data.report)
+    return data.week
+  }, [])
+
   const loadData = useCallback(async () => {
     try {
-      const [w, t] = await Promise.all([api.week(), api.truck()])
+      const [w, t, r, rep] = await Promise.all([api.week(), api.truck(), api.rooms(), api.report()])
       writeCache('week', w)
       writeCache('truck', t)
+      writeCache('rooms', r)
+      writeCache('report', rep)
       markOnline(true)
-      setWeek(applyPendingToWeek(w, pending()))
-      setTruck(applyPendingToTruck(t, pending()))
-      return w
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
+        writeCache('session', null)
         setSession(false)
         return null
       }
       if (err instanceof OfflineError) markOnline(false)
-      const w = readCache<Week>('week')
-      const t = readCache<TruckData>('truck')
-      if (w) setWeek(applyPendingToWeek(w, pending()))
-      if (t) setTruck(applyPendingToTruck(t, pending()))
-      return w
     }
-  }, [])
+    return showCached()
+  }, [showCached])
 
   const enterApp = useCallback(
     async (s: SignedIn) => {
       writeCache('session', s)
       setSession(s)
+      // Show what the phone already has at once; J2's answer replaces it when it arrives.
+      const cached = showCached()
+      if (cached) setDayIndex(cached.today_index)
       const w = await loadData()
-      if (w) setDayIndex(w.today_index)
+      if (w && !cached) setDayIndex(w.today_index)
       void flush()
     },
-    [loadData],
+    [loadData, showCached],
   )
 
-  // On launch: a valid J2 session skips sign-in. With no signal, trust the last one.
+  // Launch never waits on the network when the phone has a saved sign-in.
   useEffect(() => {
+    const cached = readCache<SignedIn>('session')
+    if (cached) {
+      void enterApp(cached)
+      return
+    }
     api
-      .session()
+      .session(LAUNCH_CHECK_MS)
       .then((s) => (s.authenticated ? enterApp(s) : setSession(false)))
       .catch(() => {
-        const cached = readCache<SignedIn>('session')
         markOnline(false)
-        if (cached) void enterApp(cached)
-        else setSession(false)
+        setSession(false)
       })
   }, [enterApp])
 
   const reportFlush = useCallback(
     (result: FlushResult, label: string) => {
       if (result.needsSignIn) {
+        showToast('Signed out', 'Sign in again; your updates are kept on the phone')
+        writeCache('session', null)
         setSession(false)
         return
       }
@@ -117,12 +168,21 @@ export default function App() {
     [reportFlush],
   )
 
-  if (session === null) return <div className="signin" />
+  if (session === null) {
+    return (
+      <div className="splash">
+        <img src="/pierson-logo.png" alt="Pierson" />
+        <div style={{ color: 'var(--navy-muted)', fontSize: 13 }}>Connecting to J2…</div>
+      </div>
+    )
+  }
   if (session === false) {
     return <SignIn online={sync.online} onSignedIn={(s) => s.authenticated && enterApp(s)} />
   }
 
   const onSite = !!week?.run.on_site_at
+  const today = week?.days[week.today_index]
+  const room = rooms?.rooms.find((r) => r.id === roomId) ?? null
 
   function setLpState(lp: Lp, state: Lp['state']) {
     setTruck((t) => t && { ...t, lps: t.lps.map((x) => (x.code === lp.code ? { ...x, state } : x)) })
@@ -134,12 +194,12 @@ export default function App() {
     void write(`/api/field/lps/${encodeURIComponent(lp.code)}/scan/`, { action }, `${lp.code} ${onSite ? 'accepted' : 'loaded'}`)
   }
 
-  function scanNext(lp: Lp) {
-    // Simulated until the camera scanner lands: resolves to the next LP, like the prototype.
-    setScanLabel(`Scanning for ${lp.code}…`)
+  // Simulated until the camera scanner lands: resolves to the expected code, like the prototype.
+  function simulateScan(label: string, then: () => void) {
+    setScanLabel(label)
     window.setTimeout(() => {
       setScanLabel(null)
-      confirmLp(lp)
+      then()
     }, SCAN_MS)
   }
 
@@ -166,6 +226,49 @@ export default function App() {
     else showToast('No number yet', `${day.site_contact} has no phone number in J2`)
   }
 
+  function updateRoom(r: Room, patch: Partial<Room>, label: string) {
+    setRooms((data) => data && { ...data, rooms: data.rooms.map((x) => (x.id === r.id ? { ...x, ...patch } : x)) })
+    void write(`/api/field/rooms/${encodeURIComponent(r.id)}/`, patch, `${r.name} · ${label}`)
+  }
+
+  function setSerial(r: Room, serial: string) {
+    if (r.expected_serial && serial !== r.expected_serial) {
+      showToast('Serial not on the IF', `${serial} isn't the panel planned for ${r.name}`)
+      return
+    }
+    updateRoom(r, { serial }, `SN ${serial}`)
+  }
+
+  async function takePhoto(r: Room, file: File) {
+    const taken = new Date()
+    try {
+      const image = await stampPhoto(file, [
+        `${today?.school ?? ''} · ${r.name}`,
+        `${stampTime(taken)} · SN ${r.serial || 'not scanned'}`,
+      ])
+      setRooms((data) => data && { ...data, rooms: data.rooms.map((x) => (x.id === r.id ? { ...x, photo_url: image } : x)) })
+      void write(`/api/field/rooms/${encodeURIComponent(r.id)}/photo/`, { image, taken_at: taken.toISOString() }, `${r.name} · photo`)
+    } catch (err) {
+      showToast('Photo not saved', (err as Error).message)
+    }
+  }
+
+  function completeRoom(r: Room) {
+    updateRoom(r, { done: true }, 'complete')
+    setRoomId(null)
+  }
+
+  function sendReport(draft: { notes: string; return_to: ReportData['return_to']; ship_on_if: boolean }) {
+    const at = new Date().toISOString()
+    setReport(
+      (rep) =>
+        rep && { ...rep, ...draft, sent_at: at, if_status: draft.ship_on_if ? 'partially_shipped' : rep.if_status },
+    )
+    if (draft.return_to === 'pcci') setTruck((t) => t && { ...t, state: 'returned' })
+    const label = draft.ship_on_if && report ? `Report sent · ${report.if_number} held for NetSuite` : 'Report sent'
+    void write('/api/field/report/send/', { ...draft, at }, label)
+  }
+
   async function syncNow() {
     if (!sync.queued) {
       showToast(sync.online ? 'J2 synced' : 'Offline', sync.online ? 'Nothing waiting to send' : 'Work keeps saving on the phone')
@@ -186,12 +289,19 @@ export default function App() {
     }
     clearCache()
     setAccountOpen(false)
+    setRoomId(null)
     setWeek(null)
     setTruck(null)
+    setRooms(null)
+    setReport(null)
     setSession(false)
   }
 
-  const today = week?.days[week.today_index]
+  function openTab(t: Tab) {
+    setRoomId(null)
+    setTab(t)
+  }
+
   const selected = week?.days[dayIndex]
   const lpsDone = truck ? truck.lps.filter((lp) => isDone(lp, truck.phase === 'on_site')).length : 0
   const titles: Record<Tab, [string, string]> = {
@@ -200,46 +310,84 @@ export default function App() {
     rooms: [today?.school ?? '', 'Install'],
     report: ['End of day', 'Daily report'],
   }
-  const [kicker, title] = titles[tab]
+  const [kicker, title] = room ? [`${today?.school ?? ''} · ${week?.job_code ?? ''}`, room.name] : titles[tab]
+  const loaded = week && truck && rooms && report
+
+  function screen() {
+    if (!loaded) {
+      return (
+        <div className="empty">
+          <div className="empty-title">{sync.online ? 'Loading from J2…' : 'No plan on this phone yet'}</div>
+          {!sync.online && <div>Connect once to download this week's plan.</div>}
+        </div>
+      )
+    }
+    if (room) {
+      return (
+        <RoomDetail
+          room={room}
+          scope={rooms.scope}
+          walls={rooms.walls}
+          onScanSerial={() => simulateScan('Scanning panel serial…', () => setSerial(room, room.expected_serial))}
+          onTypeSerial={(serial) => setSerial(room, serial)}
+          onHeight={(ok) => updateRoom(room, { height_ok: ok }, ok ? 'mount checked' : 'mount unchecked')}
+          onWall={(wall) => updateRoom(room, { wall }, wall)}
+          onPhoto={(file) => takePhoto(room, file)}
+          onPacked={(packed) => updateRoom(room, { packed }, packed ? 'packaging done' : 'packaging unchecked')}
+          onComplete={() => completeRoom(room)}
+        />
+      )
+    }
+    if (tab === 'today') {
+      return <Today week={week} dayIndex={dayIndex} onPickDay={setDayIndex} onArrive={arrive} onToggleArrivalWindow={toggleArrivalWindow} onCall={call} />
+    }
+    if (tab === 'truck') {
+      return (
+        <Truck
+          truck={truck}
+          onScanNext={(lp) => simulateScan(`Scanning for ${lp.code}…`, () => confirmLp(lp))}
+          onConfirm={confirmLp}
+        />
+      )
+    }
+    if (tab === 'rooms') return <Rooms data={rooms} onOpen={(r) => setRoomId(r.id)} />
+    return (
+      <Report
+        key={report.sent_at ?? 'draft'}
+        report={report}
+        rooms={rooms}
+        truck={truck}
+        queued={pending().some((w) => w.path === '/api/field/report/send/')}
+        onSend={sendReport}
+      />
+    )
+  }
 
   return (
     <div className="shell">
       <Header
         kicker={kicker}
         title={title}
-        showLogo={tab === 'today'}
+        showLogo={tab === 'today' && !room}
         sync={sync}
         initials={session.user.initials}
         onPill={syncNow}
         onAccount={() => setAccountOpen(true)}
+        onBack={room ? () => setRoomId(null) : undefined}
       />
-      <main className="content">
-        {!week || !truck ? (
-          <div className="empty">
-            <div className="empty-title">{sync.online ? 'Loading from J2…' : 'No plan on this phone yet'}</div>
-            {!sync.online && <div>Connect once to download this week's plan.</div>}
-          </div>
-        ) : tab === 'today' ? (
-          <Today week={week} dayIndex={dayIndex} onPickDay={setDayIndex} onArrive={arrive} onToggleArrivalWindow={toggleArrivalWindow} onCall={call} />
-        ) : tab === 'truck' ? (
-          <Truck truck={truck} onScanNext={scanNext} onConfirm={confirmLp} />
-        ) : (
-          <div className="empty">
-            <div className="empty-title">{tab === 'rooms' ? 'Rooms' : 'Daily report'} comes in the next build</div>
-            <div>Today and Truck are ready to try.</div>
-          </div>
-        )}
-      </main>
-      <TabBar
-        tab={tab}
-        onTab={setTab}
-        meta={{
-          today: today ? shortDate(today.date) : '',
-          truck: truck ? `${lpsDone}/${truck.lps.length}` : '',
-          rooms: today ? `0/${today.rooms}` : '',
-          report: '',
-        }}
-      />
+      <main className="content">{screen()}</main>
+      {!room && (
+        <TabBar
+          tab={tab}
+          onTab={openTab}
+          meta={{
+            today: today ? shortDate(today.date) : '',
+            truck: truck ? `${lpsDone}/${truck.lps.length}` : '',
+            rooms: rooms ? `${rooms.rooms.filter((r) => r.done).length}/${rooms.rooms.length}` : '',
+            report: report?.sent_at ? 'Sent' : '',
+          }}
+        />
+      )}
       {toast && <Toast kicker={toast.kicker} text={toast.text} />}
       {scanLabel && <ScanOverlay label={scanLabel} />}
       {accountOpen && (

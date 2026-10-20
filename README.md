@@ -16,9 +16,11 @@ The backend is **J2 WMS** (Django, `JKim-Pierson/pcci-wms`). Until the field API
 - Sign-in: "Sign in with Microsoft" runs through J2's `/auth/microsoft/` path (a test page on `j2-mock`), plus J2 username and password.
 - Today: day picker, site card, arrival window, crew, vehicles, hotel, Arrive on site.
 - Truck: LP list, Scan next (simulated scan for now), tap to confirm. LPs load before arrival and are accepted after.
-- Offline: every update is saved on the phone first and sent when there is signal. The header pill shows the queue. J2 ignores repeats using `request_key`.
+- Rooms: confirmed scope, room list, and per room: serial (simulated scan or typed, checked against the IF), mount check and wall type, stamped photo from the camera, packaging, complete.
+- Report: rooms, serials and LPs, IF status, open items, notes, heading to Hotel or PCCi, ship on the IF, send.
+- Offline: every update, photos included, is saved on the phone first and sent when there is signal. The header pill shows the queue. J2 ignores repeats using `request_key`.
 
-Next: camera barcode scanning, delivery receipt signature, Rooms, Report.
+Next: camera barcode scanning and the delivery receipt signature.
 
 ## Run it on a laptop
 

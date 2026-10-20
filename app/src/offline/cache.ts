@@ -1,5 +1,5 @@
 import type { QueuedWrite } from './queue'
-import type { Truck, Week } from '../api/types'
+import type { Report, Rooms, Truck, Week } from '../api/types'
 
 // The last plan J2 sent, so the app opens on a job site with no signal.
 
@@ -44,12 +44,10 @@ export function applyPendingToTruck(truck: Truck, writes: readonly QueuedWrite[]
     })
   }
   const arrived = writes.some((w) => w.path === '/api/field/arrive/')
-  return {
-    ...truck,
-    lps,
-    phase: arrived ? 'on_site' : truck.phase,
-    state: arrived && truck.state === 'loading' ? 'in_transit' : truck.state,
-  }
+  const report = writes.find((w) => w.path === '/api/field/report/send/')
+  let state = arrived && truck.state === 'loading' ? 'in_transit' : truck.state
+  if (report?.body.return_to === 'pcci') state = 'returned'
+  return { ...truck, lps, phase: arrived ? 'on_site' : truck.phase, state }
 }
 
 export function applyPendingToWeek(week: Week, writes: readonly QueuedWrite[]): Week {
@@ -63,4 +61,35 @@ export function applyPendingToWeek(week: Week, writes: readonly QueuedWrite[]): 
     }
   }
   return { ...week, run }
+}
+
+export function applyPendingToRooms(rooms: Rooms, writes: readonly QueuedWrite[]): Rooms {
+  let list = rooms.rooms
+  for (const w of writes) {
+    const photo = w.path.match(/^\/api\/field\/rooms\/([^/]+)\/photo\/$/)
+    const step = w.path.match(/^\/api\/field\/rooms\/([^/]+)\/$/)
+    if (photo) {
+      // Until it syncs, show the stamped photo held in the queue.
+      list = list.map((r) =>
+        r.id === photo[1] ? { ...r, photo_url: String(w.body.image), photo_taken_at: String(w.body.taken_at) } : r,
+      )
+    } else if (step) {
+      list = list.map((r) => (r.id === step[1] ? { ...r, ...w.body } : r))
+    }
+  }
+  return { ...rooms, rooms: list }
+}
+
+export function applyPendingToReport(report: Report, writes: readonly QueuedWrite[]): Report {
+  const sent = writes.find((w) => w.path === '/api/field/report/send/')
+  if (!sent) return report
+  const body = sent.body as { notes: string; return_to: Report['return_to']; ship_on_if: boolean; at: string }
+  return {
+    ...report,
+    notes: body.notes,
+    return_to: body.return_to,
+    ship_on_if: body.ship_on_if,
+    sent_at: body.at,
+    if_status: body.ship_on_if ? 'partially_shipped' : report.if_status,
+  }
 }

@@ -10,6 +10,10 @@ const config: CapacitorConfig = {
     cleartext: true,
     allowNavigation: ['*'],
   },
+  android: {
+    // Room photos come back from a test server over plain http.
+    allowMixedContent: true,
+  },
   plugins: {
     // Native HTTP: no CORS, and J2's session cookie is shared with the sign-in page.
     CapacitorHttp: { enabled: true },

@@ -39,4 +39,6 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Room photos are taken with the camera from the photo step. -->
+    <uses-permission android:name="android.permission.CAMERA" />
 </manifest>

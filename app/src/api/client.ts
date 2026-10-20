@@ -1,5 +1,5 @@
 import { Capacitor } from '@capacitor/core'
-import type { Session, Truck, Week } from './types'
+import type { Report, Rooms, Session, Truck, Week } from './types'
 
 const SERVER_KEY = 'avl.server'
 // A firewall that drops packets makes a request hang for minutes; give up sooner and say so.
@@ -47,7 +47,7 @@ export function needsServer() {
   return isNative && !getServer()
 }
 
-async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
+async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown, timeoutMs = TIMEOUT_MS): Promise<T> {
   let res: Response
   let timer: number | undefined
   try {
@@ -58,7 +58,7 @@ async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown):
       body: body === undefined ? undefined : JSON.stringify(body),
     })
     const timeout = new Promise<never>((_, reject) => {
-      timer = window.setTimeout(() => reject(new Error('timeout')), TIMEOUT_MS)
+      timer = window.setTimeout(() => reject(new Error('timeout')), timeoutMs)
     })
     res = await Promise.race([call, timeout])
   } catch {
@@ -72,12 +72,14 @@ async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown):
 }
 
 export const api = {
-  session: () => request<Session>('GET', '/api/auth/session/'),
+  session: (timeoutMs?: number) => request<Session>('GET', '/api/auth/session/', undefined, timeoutMs),
   login: (username: string, password: string) =>
     request<Session>('POST', '/api/auth/login/', { username, password }),
   logout: () => request<Session>('POST', '/api/auth/logout/'),
   week: () => request<Week>('GET', '/api/field/week/'),
   truck: () => request<Truck>('GET', '/api/field/truck/'),
+  rooms: () => request<Rooms>('GET', '/api/field/rooms/'),
+  report: () => request<Report>('GET', '/api/field/report/'),
   post: <T>(path: string, body: unknown) => request<T>('POST', path, body),
 }
 

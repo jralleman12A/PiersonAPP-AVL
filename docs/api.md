@@ -22,6 +22,11 @@ All requests carry J2's Django session cookie. Every write carries a `request_ke
 | POST | `/api/field/arrive/` | `{at, request_key}` | `VehicleRun` state. `at` is the time the crew tapped, which may be hours before it syncs |
 | POST | `/api/field/arrival-window/` | `{sent, request_key}` | New field per stop |
 | POST | `/api/field/lps/<code>/scan/` | `{action: "load" or "accept", request_key}` | `ShipmentAllocation.state` loaded → accepted |
+| GET | `/api/field/rooms/` | | Confirmed scope (filled by the PM) + per-room status. Not in J2 yet |
+| POST | `/api/field/rooms/<id>/` | Any of `{serial, height_ok, wall, packed, done}` + `request_key` | `serial` must match an `ItemInstance` on the IF; `done` needs all four steps |
+| POST | `/api/field/rooms/<id>/photo/` | `{image: "data:image/jpeg;base64,…", taken_at, request_key}` | Stamp is burned in on the phone. Storage (J2 or SharePoint) is open |
+| GET | `/api/field/report/` | | `ItemFulfillment` number and status, plus today's report |
+| POST | `/api/field/report/send/` | `{notes, return_to: "hotel" or "pcci", ship_on_if, at, request_key}` | Ship on IF → `partially_shipped` and a `NetSuiteOutboundEvent` (awaiting contract). PCCi → run `returned` |
 
 Errors are `{"error": "<message the crew can read>"}` with a 4xx status. A 401 means the session ended; the app keeps queued writes and sends them after the next sign-in.
 

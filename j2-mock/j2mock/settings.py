@@ -52,4 +52,10 @@ TIME_ZONE = "America/Chicago"
 USE_I18N = False
 USE_TZ = True
 
+# Room photos. Real J2 decides between its own storage and a SharePoint folder per job.
+MEDIA_ROOT = BASE_DIR / "media"
+MEDIA_URL = "/media/"
+# Photos arrive as base64 JSON so they can wait in the phone's offline queue.
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

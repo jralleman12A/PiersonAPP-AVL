@@ -144,3 +144,46 @@ button:disabled { cursor: default; }
 
 .empty { text-align: center; padding: 48px 16px; color: var(--muted); }
 .empty-title { font-size: 15px; font-weight: 800; color: var(--ink); margin-bottom: 4px; }
+
+/* Header back button */
+.back { width: 44px; height: 44px; margin-left: -12px; border: none; background: transparent; color: white; font-size: 26px; line-height: 1; }
+
+/* Launch splash */
+.splash { height: 100%; background: var(--navy); color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; }
+.splash img { height: 30px; }
+
+/* Rooms */
+.scope-card { background: var(--navy); color: white; border-radius: 14px; padding: 14px 16px; margin-bottom: 14px; }
+.scope-kicker { font-size: 10px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--orange); }
+.scope-text { font-size: 13px; margin: 6px 0 10px; color: #dbe5ee; }
+.scope-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
+.scope-label { font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--navy-muted); }
+
+/* Room detail */
+.step-head { display: flex; align-items: center; gap: 10px; }
+.step-num { width: 26px; height: 26px; border-radius: 50%; color: white; font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.step-title { flex: 1; font-size: 14px; font-weight: 800; text-align: left; }
+.serial-box { flex: 1; font-family: var(--mono); font-size: 15px; font-weight: 700; background: var(--bg); border-radius: 8px; padding: 10px 12px; }
+.btn-quiet { height: 44px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--line); background: white; font-size: 12.5px; font-weight: 700; flex-shrink: 0; }
+.link-btn { background: none; border: none; padding: 8px 0 0; color: var(--muted); font-size: 12px; font-weight: 700; text-decoration: underline; }
+.plain-row { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 48px; margin-top: 6px; padding: 0; border: none; background: none; text-align: left; font-size: 13px; }
+.plain-row.boxed { min-height: 52px; margin-top: 12px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 10px; background: white; font-size: 12.5px; }
+.wall-pill { height: 40px; padding: 0 14px; border-radius: 20px; border: 1px solid var(--line); background: white; font-size: 12.5px; font-weight: 700; }
+.wall-pill.on { border-color: var(--navy); background: var(--navy); color: white; }
+.warn-note { font-size: 11.5px; color: var(--amber-ink); margin-top: 6px; }
+.photo-tile { position: relative; display: flex; align-items: center; justify-content: center; width: 100%; aspect-ratio: 16 / 10; border-radius: 10px; border: 1px dashed #cbd5e1; background: var(--bg); overflow: hidden; padding: 0; }
+.photo-tile.has { border-style: solid; border-color: var(--line); background: #0f172a; }
+.photo-tile img { width: 100%; height: 100%; object-fit: contain; }
+
+/* Report */
+.stat-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px; }
+.stat-tile { background: white; border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+.stat-tile-value { font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.list-line { display: flex; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--line-soft); font-size: 12.5px; }
+.list-line:last-child { border-bottom: none; }
+.open-line { font-size: 12.5px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.notes { width: 100%; min-height: 84px; font-size: 13px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; resize: vertical; background: white; outline: none; }
+.notes:focus { border-color: var(--orange); }
+.segmented { display: flex; background: var(--line); border-radius: 10px; padding: 3px; }
+.segmented button { flex: 1; height: 42px; border: none; border-radius: 8px; font-size: 13px; font-weight: 700; background: transparent; }
+.segmented button.on { background: white; }

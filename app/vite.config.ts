@@ -11,6 +11,7 @@ export default defineConfig({
     proxy: {
       '/api': J2,
       '/auth': J2,
+      '/media': J2,
     },
   },
 })

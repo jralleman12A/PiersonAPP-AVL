@@ -1,3 +1,5 @@
+from django.conf import settings
+from django.conf.urls.static import static
 from django.urls import path
 
 from field import auth_views, views
@@ -14,5 +16,13 @@ urlpatterns = [
     path("api/field/arrive/", views.arrive),
     path("api/field/arrival-window/", views.arrival_window),
     path("api/field/lps/<str:code>/scan/", views.scan_lp),
+    path("api/field/rooms/", views.rooms),
+    path("api/field/rooms/<str:room_id>/", views.update_room),
+    path("api/field/rooms/<str:room_id>/photo/", views.room_photo),
+    path("api/field/report/", views.report),
+    path("api/field/report/send/", views.send_report),
     path("api/field/reset/", views.reset),
 ]
+
+# Test server only: Django serves the room photos itself.
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

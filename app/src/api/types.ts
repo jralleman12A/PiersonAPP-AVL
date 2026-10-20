@@ -63,3 +63,42 @@ export type Truck = {
   school: string
   lps: Lp[]
 }
+
+export type Scope = {
+  overview: string
+  storage: string
+  hang_height: string
+  wall_type: string
+  packaging: string
+}
+
+export type Room = {
+  id: string
+  name: string
+  expected_serial: string
+  serial: string
+  height_ok: boolean
+  wall: string
+  photo_url: string | null
+  photo_taken_at: string | null
+  packed: boolean
+  done: boolean
+}
+
+export type Rooms = {
+  scope: Scope
+  walls: string[]
+  rooms: Room[]
+}
+
+export type Report = {
+  so_number: string
+  if_number: string
+  panels_this_week: number
+  if_status: 'open' | 'partially_shipped' | 'shipped'
+  netsuite_sync: string | null
+  sent_at: string | null
+  notes: string
+  return_to: 'hotel' | 'pcci'
+  ship_on_if: boolean
+}

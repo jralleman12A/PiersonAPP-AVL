@@ -6,7 +6,7 @@ from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
 
 from field import data
-from field.models import LicensePlate
+from field.models import LicensePlate, Room
 
 
 class Command(BaseCommand):
@@ -23,5 +23,9 @@ class Command(BaseCommand):
         for i, (code, description) in enumerate(data.LPS):
             LicensePlate.objects.update_or_create(
                 code=code, defaults={"description": description, "sort": i}
+            )
+        for i, (room_id, name, serial) in enumerate(data.ROOMS):
+            Room.objects.update_or_create(
+                id=room_id, defaults={"name": name, "expected_serial": serial, "sort": i}
             )
         self.stdout.write(f"Seeded. Password sign-in: {user.username} / {password}")

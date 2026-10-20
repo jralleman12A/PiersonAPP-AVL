@@ -14,3 +14,4 @@ app/android/local.properties
 *.apk
 *.keystore
 !app/android/app/debug.keystore
+media/
