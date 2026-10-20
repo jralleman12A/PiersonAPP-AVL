@@ -22,7 +22,9 @@ Next: camera barcode scanning, delivery receipt signature, Rooms, Report.
 
 ## Run it on a laptop
 
-You need [Node.js 22](https://nodejs.org) and [Python 3.12+](https://www.python.org/downloads/).
+You need [Python 3.12+](https://www.python.org/downloads/) (tick "Add python.exe to PATH"). For the browser version of the app you also need [Node.js 22](https://nodejs.org).
+
+**Windows shortcut:** double-click `start-server.bat`. It installs what the stand-in J2 needs, loads the test data and starts it for the phone.
 
 ```bash
 # 1. Stand-in J2 (leave running)
