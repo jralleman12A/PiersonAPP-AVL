@@ -74,6 +74,8 @@ export default function App() {
   const [toast, setToast] = useState<{ kicker: string; text: string } | null>(null)
   const [scanLabel, setScanLabel] = useState<string | null>(null)
   const [accountOpen, setAccountOpen] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
   const toastTimer = useRef<number | undefined>(undefined)
 
   const showToast = useCallback((kicker: string, text: string) => {
@@ -94,21 +96,31 @@ export default function App() {
   }, [])
 
   const loadData = useCallback(async () => {
-    try {
-      const [w, t, r, rep] = await Promise.all([api.week(), api.truck(), api.rooms(), api.report()])
-      writeCache('week', w)
-      writeCache('truck', t)
-      writeCache('rooms', r)
-      writeCache('report', rep)
-      markOnline(true)
-    } catch (err) {
-      if (err instanceof ApiError && err.status === 401) {
-        writeCache('session', null)
-        setSession(false)
-        return null
-      }
-      if (err instanceof OfflineError) markOnline(false)
+    // Each part loads on its own, so one failing endpoint can't blank every tab.
+    const parts = [
+      ['week', api.week],
+      ['truck', api.truck],
+      ['rooms', api.rooms],
+      ['report', api.report],
+    ] as const
+    const results = await Promise.allSettled(parts.map(([, load]) => load()))
+    const failures: unknown[] = []
+    results.forEach((res, i) => {
+      if (res.status === 'fulfilled') writeCache(parts[i][0], res.value)
+      else failures.push(res.reason)
+    })
+    if (failures.some((err) => err instanceof ApiError && err.status === 401)) {
+      writeCache('session', null)
+      setSession(false)
+      return null
     }
+    const offline = failures.length > 0 && failures.every((err) => err instanceof OfflineError)
+    markOnline(!offline)
+    if (offline) setLoadError("Can't reach J2. Showing what's saved on the phone.")
+    else if (failures.some((err) => err instanceof ApiError && err.status === 404)) {
+      setLoadError('The server is out of date for this app. Download the latest ZIP and run start-server.bat again.')
+    } else if (failures.length) setLoadError(`J2 had a problem: ${(failures[0] as Error).message}`)
+    else setLoadError(null)
     return showCached()
   }, [showCached])
 
@@ -119,7 +131,9 @@ export default function App() {
       // Show what the phone already has at once; J2's answer replaces it when it arrives.
       const cached = showCached()
       if (cached) setDayIndex(cached.today_index)
+      setLoading(true)
       const w = await loadData()
+      setLoading(false)
       if (w && !cached) setDayIndex(w.today_index)
       void flush()
     },
@@ -311,18 +325,32 @@ export default function App() {
     report: ['End of day', 'Daily report'],
   }
   const [kicker, title] = room ? [`${today?.school ?? ''} · ${week?.job_code ?? ''}`, room.name] : titles[tab]
-  const loaded = week && truck && rooms && report
+
+  async function retry() {
+    setLoading(true)
+    await loadData()
+    setLoading(false)
+  }
 
   function screen() {
-    if (!loaded) {
+    // Each tab needs only its own data; Report also counts rooms and LPs.
+    const ready = { today: week, truck, rooms, report: report && rooms && truck }[tab]
+    if (!ready && !room) {
       return (
         <div className="empty">
-          <div className="empty-title">{sync.online ? 'Loading from J2…' : 'No plan on this phone yet'}</div>
-          {!sync.online && <div>Connect once to download this week's plan.</div>}
+          <div className="empty-title">{loading ? 'Loading from J2…' : "This page isn't on the phone yet"}</div>
+          {!loading && (
+            <>
+              <div style={{ marginBottom: 14 }}>{loadError ?? 'Connect once to download it.'}</div>
+              <button className="btn btn-md btn-navy" style={{ width: 'auto', padding: '0 24px' }} onClick={retry}>
+                Try again
+              </button>
+            </>
+          )}
         </div>
       )
     }
-    if (room) {
+    if (room && rooms) {
       return (
         <RoomDetail
           room={room}
@@ -338,10 +366,10 @@ export default function App() {
         />
       )
     }
-    if (tab === 'today') {
+    if (tab === 'today' && week) {
       return <Today week={week} dayIndex={dayIndex} onPickDay={setDayIndex} onArrive={arrive} onToggleArrivalWindow={toggleArrivalWindow} onCall={call} />
     }
-    if (tab === 'truck') {
+    if (tab === 'truck' && truck) {
       return (
         <Truck
           truck={truck}
@@ -350,7 +378,8 @@ export default function App() {
         />
       )
     }
-    if (tab === 'rooms') return <Rooms data={rooms} onOpen={(r) => setRoomId(r.id)} />
+    if (tab === 'rooms' && rooms) return <Rooms data={rooms} onOpen={(r) => setRoomId(r.id)} />
+    if (!report || !rooms || !truck) return null
     return (
       <Report
         key={report.sent_at ?? 'draft'}
@@ -375,7 +404,10 @@ export default function App() {
         onAccount={() => setAccountOpen(true)}
         onBack={room ? () => setRoomId(null) : undefined}
       />
-      <main className="content">{screen()}</main>
+      <main className="content">
+        {loadError && (week || truck || rooms) && <div className="load-banner" onClick={retry}>{loadError} Tap to retry.</div>}
+        {screen()}
+      </main>
       {!room && (
         <TabBar
           tab={tab}

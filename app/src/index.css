@@ -187,3 +187,4 @@ button:disabled { cursor: default; }
 .segmented { display: flex; background: var(--line); border-radius: 10px; padding: 3px; }
 .segmented button { flex: 1; height: 42px; border: none; border-radius: 8px; font-size: 13px; font-weight: 700; background: transparent; }
 .segmented button.on { background: white; }
+.load-banner { background: var(--amber-bg); color: var(--amber-ink); border: 1px solid #fcd34d; border-radius: 10px; padding: 9px 12px; font-size: 12.5px; font-weight: 600; margin-bottom: 12px; }
