@@ -13,3 +13,4 @@ app/android/.gradle/
 app/android/local.properties
 *.apk
 *.keystore
+!app/android/app/debug.keystore
